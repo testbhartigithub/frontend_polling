@@ -1,9 +1,7 @@
 "use client"
 
-// 🎯 ENHANCED MAIN REACT APPLICATION
-// This is the main component that manages all screens and state with new features
-
 import { useState, useEffect } from "react"
+import { API_BASE_URL } from "./config"
 
 import WelcomeScreen from "./components/WelcomeScreen/WelcomeScreen"
 import NameInputScreen from "./components/NameInputScreen/NameInputScreen"
@@ -14,33 +12,29 @@ import StudentPollScreen from "./components/StudentPollScreen/StudentPollScreen"
 import StudentResultsScreen from "./components/StudentResultsScreen/StudentResultsScreen"
 
 import "./App.css"
+
 function App() {
-  // 🎯 CORE STATE MANAGEMENT
   const [currentScreen, setCurrentScreen] = useState("welcome")
   const [userRole, setUserRole] = useState("")
   const [userName, setUserName] = useState("")
   const [userId, setUserId] = useState("")
 
-  // 📊 POLL STATE
   const [currentPoll, setCurrentPoll] = useState(null)
   const [selectedOption, setSelectedOption] = useState(null)
   const [hasVoted, setHasVoted] = useState(false)
 
-  // 🎨 UI STATE
   const [participants, setParticipants] = useState([])
   const [chatMessages, setChatMessages] = useState([])
   const [timer, setTimer] = useState(60)
   const [isTimerRunning, setIsTimerRunning] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  // 🆔 INITIALIZE USER SESSION
   useEffect(() => {
     const sessionId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     setUserId(sessionId)
     console.log("🆔 User session created:", sessionId)
   }, [])
 
-  // ⏱️ REAL-TIME POLLING (Every 2 seconds)
   useEffect(() => {
     if (
       currentScreen === "teacher-dashboard" ||
@@ -66,7 +60,6 @@ function App() {
     }
   }, [currentScreen])
 
-  // ⏰ TIMER MANAGEMENT
   useEffect(() => {
     if (isTimerRunning && timer > 0) {
       const timerInterval = setInterval(() => {
@@ -82,12 +75,9 @@ function App() {
     }
   }, [isTimerRunning, timer])
 
-  // 🌐 API FUNCTIONS
-
-  // Fetch active polls from server
   const fetchActivePolls = async () => {
     try {
-      const response = await fetch("/api/polls/active")
+      const response = await fetch(`${API_BASE_URL}/api/polls/active`)
       const data = await response.json()
 
       if (data.success && data.poll) {
@@ -97,12 +87,10 @@ function App() {
           console.log("📊 New poll received:", data.poll.question)
         }
 
-        // Auto-redirect student to poll screen
         if (userRole === "student" && data.poll && !hasVoted && currentScreen === "student-waiting") {
           setCurrentScreen("student-poll")
         }
       } else if (userRole === "student" && currentScreen === "student-poll" && !data.poll) {
-        // Poll ended, redirect to waiting
         setCurrentScreen("student-waiting")
         setSelectedOption(null)
         setHasVoted(false)
@@ -112,11 +100,10 @@ function App() {
     }
   }
 
-  // Fetch participants list
   const fetchParticipants = async () => {
     if (!currentPoll?.id) return
     try {
-      const response = await fetch(`/api/participants?pollId=${currentPoll.id}`)
+      const response = await fetch(`${API_BASE_URL}/api/participants?pollId=${currentPoll.id}`)
       const data = await response.json()
       if (data.success) {
         setParticipants(data.participants || [])
@@ -126,11 +113,10 @@ function App() {
     }
   }
 
-  // Fetch chat messages
   const fetchChatMessages = async () => {
     if (!currentPoll?.id) return
     try {
-      const response = await fetch(`/api/chat/messages?pollId=${currentPoll.id}`)
+      const response = await fetch(`${API_BASE_URL}/api/chat/messages?pollId=${currentPoll.id}`)
       const data = await response.json()
       if (data.success) {
         setChatMessages(data.messages || [])
@@ -140,23 +126,21 @@ function App() {
     }
   }
 
-  // Create new poll (Teacher) - Enhanced with configurable time
   const createPoll = async (pollData) => {
     setIsLoading(true)
     try {
       console.log("🎯 Creating new poll:", pollData.question)
       console.log("⏰ Time limit:", pollData.timeLimit, "seconds")
 
-      // End previous poll if exists
       if (currentPoll?.id) {
-        await fetch(`/api/polls/${currentPoll.id}`, {
+        await fetch(`${API_BASE_URL}/api/polls/${currentPoll.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ isActive: false }),
         })
       }
 
-      const response = await fetch("/api/polls", {
+      const response = await fetch(`${API_BASE_URL}/api/polls`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -172,12 +156,9 @@ function App() {
         setTimer(newPoll.timeLimit)
         setIsTimerRunning(true)
         setCurrentScreen("teacher-dashboard")
-
-        // Reset voting states
         setHasVoted(false)
         setSelectedOption(null)
 
-        // Join as teacher
         setTimeout(() => {
           joinPoll(newPoll.id)
         }, 500)
@@ -192,10 +173,9 @@ function App() {
     }
   }
 
-  // Join poll as participant - Enhanced with kick check
   const joinPoll = async (pollId) => {
     try {
-      const response = await fetch("/api/participants", {
+      const response = await fetch(`${API_BASE_URL}/api/participants`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -207,7 +187,7 @@ function App() {
           },
         }),
       })
-      
+
       if (response.ok) {
         console.log("👥 Joined poll successfully")
         fetchParticipants()
@@ -223,13 +203,12 @@ function App() {
     }
   }
 
-  // Submit vote (Student)
   const submitVote = async (optionIndex) => {
     setIsLoading(true)
     try {
       console.log(`🗳️ Submitting vote: Option ${optionIndex + 1}`)
 
-      const response = await fetch("/api/polls/vote", {
+      const response = await fetch(`${API_BASE_URL}/api/polls/vote`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -261,10 +240,9 @@ function App() {
     }
   }
 
-  // Kick participant (Teacher)
   const kickParticipant = async (participantId) => {
     try {
-      const response = await fetch("/api/participants/kick", {
+      const response = await fetch(`${API_BASE_URL}/api/participants/kick`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ participantId, pollId: currentPoll.id }),
@@ -278,11 +256,10 @@ function App() {
     }
   }
 
-  // Send chat message
   const sendChatMessage = async (message) => {
     if (!message.trim()) return false
     try {
-      const response = await fetch("/api/chat/send", {
+      const response = await fetch(`${API_BASE_URL}/api/chat/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -302,7 +279,6 @@ function App() {
     return false
   }
 
-  // 🎛️ PROPS FOR ALL COMPONENTS
   const commonProps = {
     currentScreen,
     setCurrentScreen,
@@ -331,7 +307,6 @@ function App() {
     fetchActivePolls,
   }
 
-  // 🎭 SCREEN ROUTER
   const renderScreen = () => {
     console.log("🎭 Current screen:", currentScreen)
 
